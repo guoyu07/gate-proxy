@@ -19,3 +19,10 @@ $18
 api:GET:/test/once
 $286
 {"name":"test1单接口测试1","method":"GET","url":"/test/once","domain":"","beginHandles":["auth"],"afterHandles":null,"nodeGroup":[{"attr":"test1","cluster":"test1","rewrite":"/njr/m/phoneCheck","paramGroup":[{"attr":"phone","from":1,"to":1,"toName":"userPhone","required":true}]}]}
+*3
+$3
+set
+$21
+api:GET:/test/combine
+$435
+{"name":"test2单接口测试","method":"GET","url":"/test/combine","domain":"","beginHandles":null,"afterHandles":null,"nodeGroup":[{"attr":"test1","cluster":"test1","rewrite":"/njr/m/phoneCheck","paramGroup":[{"attr":"phone","from":1,"to":1,"toName":"userPhone","required":true}]},{"attr":"test2","cluster":"test2","rewrite":"/user/m/phoneCheck","paramGroup":[{"attr":"phone","from":1,"to":1,"toName":"userPhone","required":true}]}]}

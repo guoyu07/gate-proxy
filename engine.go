@@ -23,15 +23,15 @@ func New() *Engine {
     engine := &Engine{
         routeTable:         NewRouteTable(),
         clusters:            &ClusterGroup{},
+        plugins: make(HandlesChain, 0),
     }
-    plugins := make(HandlesChain, 0)
-    engine.plugins = plugins
     engine.pool.New = func() interface{} {
         return engine.allocateContext()
     }
     engine.clientPool.New = func() interface{} {
         return &http.Client{}
     }
+    engine.RegisterPlugin(Proxy{})
     return engine
 }
 

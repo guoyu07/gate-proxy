@@ -30,7 +30,7 @@ type (
     }
 )
 
-var methods = []string{"GET", "POST", "DELETE", "PUT"}
+var methods = []string{"GET", "POST", "DELETE", "PUT", "PATCH", "HEAD", "OPTIONS", "CONNECT", "TRACE"}
 
 func NewRouteTable() *RouteTable {
     routeTable := &RouteTable{
@@ -121,90 +121,11 @@ func (r *RouteGroup)indexOf(url string) (index int) {
     index = -1
     r.mtx.RLock()
     defer r.mtx.RUnlock()
-    for i, l := 0, len(r.routes); i < l; i++ {
+    l := len(r.routes)
+    for i := 0; i < l; i++ {
         if r.routes[i].URL == url {
             return i
         }
     }
     return index
 }
-
-// 路由是否存在
-//func (table *RouteTable)IsExist(method, url string) (index int) {
-//    index = -1
-//    for i, l := 0, len(methods); i < l; i++ {
-//        if table.table[i].Method == method {
-//            table.table[i].mtx.RLock()
-//            defer table.table[i].mtx.RUnlock()
-//            for j, jl := 0, len(table.table[i].routes); j < jl; j++ {
-//
-//            }
-//        }
-//    }
-//    nums := len(table.tables)
-//    for i := 0; i < nums; i++ {
-//        if table.tables[i].Method == method && table.tables[i].URL == url {
-//            return i
-//        }
-//    }
-//    return
-//}
-
-
-//// 获取规则
-//func (table *RouteTable)Get(method, url string) (has bool, routeInfo RouteInfo) {
-//    index := table.IsExist(method, url)
-//    if index != -1 {
-//        return true, table.tables[index]
-//    }
-//    return false, routeInfo
-//}
-
-//// 增加路由
-//func (table *RouteTable)Add(routeInfo RouteInfo) (err error) {
-//    if table.IsExist(routeInfo.Method, routeInfo.URL) != -1 {
-//        return APIAlreadyExist
-//    }
-//    table.m.Lock()
-//    defer table.m.Unlock()
-//    table.tables = append(table.tables, routeInfo)
-//    return nil
-//}
-
-//// 删除路由
-//func (table *RouteTable)Remove(method, url string) (err error) {
-//    if index := table.IsExist(method, url); index != -1 {
-//        table.m.Lock()
-//        defer table.m.Unlock()
-//        table.tables = append(table.tables[:index], table.tables[index + 1:]...)
-//        return nil
-//    }
-//    return APINotFound
-//}
-
-// 路由是否存在
-//func (table *RouteTable)IsExist(method, url string) (index int) {
-//    index = -1
-//    table.m.RLock()
-//    defer table.m.RUnlock()
-//    nums := len(table.tables)
-//    for i := 0; i < nums; i++ {
-//        if table.tables[i].Method == method && table.tables[i].URL == url {
-//            return i
-//        }
-//    }
-//    return
-//}
-
-//// 更新路由
-//func (table *RouteTable)Update(routeInfo RouteInfo) {
-//    index := table.IsExist(routeInfo.Method, routeInfo.URL)
-//    table.m.Lock()
-//    defer table.m.Unlock()
-//    if index == -1 {
-//        table.tables = append(table.tables, routeInfo)
-//        return
-//    }
-//    table.tables[index] = routeInfo
-//    return
-//}

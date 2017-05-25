@@ -9,10 +9,7 @@ import (
     "io"
     "encoding/json"
     "time"
-    "math"
 )
-
-const abortIndex int8 = math.MaxInt8 / 2
 
 type (
     ExecInfo struct {
@@ -57,13 +54,6 @@ func (c *Context) Next() {
     }
 }
 
-func (c *Context) IsAborted() bool {
-    return c.index >= abortIndex
-}
-
-func (c *Context) Abort() {
-    c.index = abortIndex
-}
 
 func (c *Context) Set(key string, value interface{}) {
     if c.Keys == nil {
@@ -241,6 +231,7 @@ func (c *Context)Render() {
         if c.responses[0].Error != nil {
             c.JSON(c.responses[0].Error)
         } else {
+            defer c.responses[0].Response.Body.Close()
             c.JSONWithReader(c.responses[0].Response.Body)
         }
     default:
@@ -312,6 +303,7 @@ func (c *Context) MulitiJSONWithReader(combines []combineResponse) {
                 panic(err)
             }
         } else {
+            defer combines[i].Response.Body.Close()
             io.Copy(c.Writer, combines[i].Response.Body)
         }
         if i < l - 1 {
@@ -319,6 +311,7 @@ func (c *Context) MulitiJSONWithReader(combines []combineResponse) {
         }
     }
     if c.isDebug() {
+        c.Writer.WriteString("\"exec\":")
         json.NewEncoder(c.Writer).Encode(c.ExecInfoGroup)
     }
     c.Writer.WriteString("}")
