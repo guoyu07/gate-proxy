@@ -1,11 +1,16 @@
 package handle
 
 import (
-    "github.com/gin-gonic/gin"
-    "net/http"
-    "goodsogood/gateway/proxy/global"
+	"goodsogood/gateway/proxy/global"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 func Plugins(ctx *gin.Context) {
-    ctx.JSON(http.StatusOK, global.Store.Proxy().Plugins())
+	ctx.JSON(http.StatusOK, global.Store.Proxy().Plugins())
+}
+
+func Status(ctx *gin.Context) {
+
 }

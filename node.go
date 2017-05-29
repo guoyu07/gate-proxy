@@ -9,6 +9,7 @@ import (
     "time"
     "sync/atomic"
     "sync"
+    "io/ioutil"
 )
 
 // ParamFrom .
@@ -131,6 +132,7 @@ func (node Node)Do(ctx *Context, wg *sync.WaitGroup) {
         Success:true,
     }
     req, err := http.NewRequest(ctx.routeInfo.Method, uri, ctx.Request.Body)
+
     // set header
     for k, v := range parseParam.Header {
         req.Header.Set(k, v)
@@ -138,14 +140,15 @@ func (node Node)Do(ctx *Context, wg *sync.WaitGroup) {
     req.Header.Set("Gate-Cluster", cluster.Name)
     req.Header.Set("X-Forwarded-For", ctx.ClientIP())
     client := ctx.engine.Client()
-    defer ctx.engine.Release(client)
     client.Timeout = time.Second * time.Duration(backend.Timeout)
     atomic.AddUint64(&backend.Waiting, 1)
     now := time.Now()
     res, err := client.Do(req)
+    ctx.engine.Release(client)
     execInfo.ExecTime = float64(time.Since(now).Nanoseconds() / 1000000)
     atomic.AddUint64(&backend.Waiting, ^uint64(-step - 1))
-    response.Response = res
+    response.Response, _ = ioutil.ReadAll(res.Body)
+    res.Body.Close()
     if err != nil {
         execInfo.Success = false
         response.Error = BackendServiceError

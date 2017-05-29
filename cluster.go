@@ -1,156 +1,160 @@
 package gateway
 
 import (
-    "sync"
-    "sort"
+	"sort"
+	"sync"
 )
 
 type (
-    Cluster struct {
-        // 集群名称
-        Name     string `json:"name,omitempty"`
-        // 后端服务
-        backends BackendGroup `json:"backendGroup,omitempty"`
+	Cluster struct {
+		// 集群名称
+		Name string `json:"name,omitempty"`
+		// 后端服务
+		backends BackendGroup
 
-        rwMutex  sync.RWMutex
-    }
-    ClusterGroup struct {
-        rwMutex  sync.RWMutex
-        clusters []*Cluster
-    }
+		rwMutex sync.RWMutex
+	}
+	ClusterGroup struct {
+		rwMutex  sync.RWMutex
+		clusters []*Cluster
+	}
 )
 
 var heartStop = make(chan string)
 
-func (cluster *Cluster)Backends() BackendGroup {
-    return cluster.backends
+// Backends . 获取所有的后端服务
+func (cluster *Cluster) Backends() BackendGroup {
+	return cluster.backends
 }
 
-// 增加一个后端服务
+// Add . 增加一个后端服务
 func (cluster *Cluster) Add(backend *Backend) error {
-    index := cluster.indexOf(backend.Addr)
-    if index != - 1 {
-        return BackendAlreadyExist
-    }
-    cluster.addBackend(backend)
-    return nil
+	index := cluster.indexOf(backend.Addr)
+	if index != -1 {
+		return BackendAlreadyExist
+	}
+	cluster.addBackend(backend)
+	return nil
 }
 
 func (cluster *Cluster) addBackend(backend *Backend) {
-    cluster.rwMutex.Lock()
-    defer cluster.rwMutex.Unlock()
-    backend.getDefaultSetting()
-    backend.heartbeat()
-    cluster.backends = append(cluster.backends, backend)
+	cluster.rwMutex.Lock()
+	defer cluster.rwMutex.Unlock()
+	backend.getDefaultSetting()
+	backend.heartbeat()
+	cluster.backends = append(cluster.backends, backend)
 }
 
-// 移除后端服务
+// Remove . 移除后端服务
 func (cluster *Cluster) Remove(addr string) error {
-    index := cluster.indexOf(addr)
-    if index != - 1 {
-        return BackendNotFound
-    }
-    heartStop <- cluster.backends[index].Addr
-    cluster.rwMutex.Lock()
-    defer cluster.rwMutex.Unlock()
-    cluster.backends = append(cluster.backends[:index], cluster.backends[index + 1:]...)
-    return nil
+	index := cluster.indexOf(addr)
+	if index != -1 {
+		return BackendNotFound
+	}
+	heartStop <- cluster.backends[index].Addr
+	cluster.rwMutex.Lock()
+	defer cluster.rwMutex.Unlock()
+	cluster.backends = append(cluster.backends[:index], cluster.backends[index+1:]...)
+	return nil
 }
 
-// 更新后端服务
-func (cluster *Cluster)Update(backend *Backend) {
-    index := cluster.indexOf(backend.Addr)
-    if index == -1 {
-        cluster.addBackend(backend)
-        return
-    }
-    heartStop <- cluster.backends[index].Addr
-    cluster.rwMutex.Lock()
-    defer cluster.rwMutex.Unlock()
-    backend.getDefaultSetting()
-    backend.heartbeat()
-    cluster.backends[index] = backend
+// Update . 更新后端服务
+func (cluster *Cluster) Update(backend *Backend) {
+	index := cluster.indexOf(backend.Addr)
+	if index == -1 {
+		cluster.addBackend(backend)
+		return
+	}
+	heartStop <- cluster.backends[index].Addr
+	cluster.rwMutex.Lock()
+	defer cluster.rwMutex.Unlock()
+	backend.getDefaultSetting()
+	backend.heartbeat()
+	cluster.backends[index] = backend
 }
 
-func (cluster *Cluster)Balance() (backend *Backend, err error) {
-    if cluster.backends.Len() < 1 {
-        return nil, BackendServiceNotAvailable
-    }
-    sort.Sort(cluster.backends)
-    backend = cluster.backends[0]
-    if backend.Status != BackendUp {
-        return nil, BackendServiceNotAvailable
-    }
-    return backend, nil
+// Balance . 负载均衡
+func (cluster *Cluster) Balance() (backend *Backend, err error) {
+	if cluster.backends.Len() < 1 {
+		return nil, BackendServiceNotAvailable
+	}
+	sort.Sort(cluster.backends)
+	for i, l := 0, cluster.backends.Len(); i < l; i++ {
+		if cluster.backends[i].Status == BackendUp {
+			return cluster.backends[i], nil
+		}
+	}
+	return nil, BackendServiceNotAvailable
 }
 
-func (cluster *Cluster)indexOf(addr string) (index int) {
-    index = -1
-    for i, l := 0, len(cluster.backends); i < l; i ++ {
-        if cluster.backends[i].Addr == addr {
-            return i
-        }
-    }
-    return index
+func (cluster *Cluster) indexOf(addr string) (index int) {
+	index = -1
+	for i, l := 0, len(cluster.backends); i < l; i++ {
+		if cluster.backends[i].Addr == addr {
+			return i
+		}
+	}
+	return index
 }
 
-// 添加一个集群
-func (clusterGroup *ClusterGroup)Add(cluster *Cluster) error {
-    index := clusterGroup.indexOf(cluster.Name)
-    if index != -1 {
-        return ClusterAlreadyExist
-    }
-    clusterGroup.rwMutex.Lock()
-    defer clusterGroup.rwMutex.Unlock()
-    clusterGroup.clusters = append(clusterGroup.clusters, cluster)
-    return nil
+// Add . 添加一个集群
+func (clusterGroup *ClusterGroup) Add(cluster *Cluster) error {
+	index := clusterGroup.indexOf(cluster.Name)
+	if index != -1 {
+		return ClusterAlreadyExist
+	}
+	clusterGroup.rwMutex.Lock()
+	defer clusterGroup.rwMutex.Unlock()
+	clusterGroup.clusters = append(clusterGroup.clusters, cluster)
+	return nil
 }
 
-// 移除一个集群
-func (clusterGroup *ClusterGroup)Remove(clusterName string) error {
-    index := clusterGroup.indexOf(clusterName)
-    if index == -1 {
-        return ClusterNotFound
-    }
-    clusterGroup.rwMutex.Lock()
-    defer clusterGroup.rwMutex.Unlock()
-    clusterGroup.clusters = append(clusterGroup.clusters[:index], clusterGroup.clusters[index + 1:]...)
-    return nil
+// Remove . 移除一个集群
+func (clusterGroup *ClusterGroup) Remove(clusterName string) error {
+	index := clusterGroup.indexOf(clusterName)
+	if index == -1 {
+		return ClusterNotFound
+	}
+	clusterGroup.rwMutex.Lock()
+	defer clusterGroup.rwMutex.Unlock()
+	clusterGroup.clusters = append(clusterGroup.clusters[:index], clusterGroup.clusters[index+1:]...)
+	return nil
 }
 
-// 获取一个集群
-func (clusterGroup *ClusterGroup)Get(clusterName string) (has bool, cluster *Cluster) {
-    index := clusterGroup.indexOf(clusterName)
-    if index == -1 {
-        return false, cluster
-    }
-    return true, clusterGroup.clusters[index]
+// Get . 获取一个集群
+func (clusterGroup *ClusterGroup) Get(clusterName string) (has bool, cluster *Cluster) {
+	index := clusterGroup.indexOf(clusterName)
+	if index == -1 {
+		return false, cluster
+	}
+	return true, clusterGroup.clusters[index]
 }
 
-// 更新集群
-func (clusterGroup *ClusterGroup)Update(cluster *Cluster) {
-    index := clusterGroup.indexOf(cluster.Name)
-    clusterGroup.rwMutex.Lock()
-    defer clusterGroup.rwMutex.Unlock()
-    if index == -1 {
-        clusterGroup.clusters = append(clusterGroup.clusters, cluster)
-        return
-    }
-    clusterGroup.clusters[index] = cluster
-    return
+// Update . 更新集群
+func (clusterGroup *ClusterGroup) Update(cluster *Cluster) {
+	index := clusterGroup.indexOf(cluster.Name)
+	clusterGroup.rwMutex.Lock()
+	defer clusterGroup.rwMutex.Unlock()
+	if index == -1 {
+		clusterGroup.clusters = append(clusterGroup.clusters, cluster)
+		return
+	}
+	clusterGroup.clusters[index] = cluster
+	return
 }
 
-func (clusterGroup *ClusterGroup)Clusters() []*Cluster {
-    return clusterGroup.clusters
+// Clusters . 集群列表
+func (clusterGroup *ClusterGroup) Clusters() []*Cluster {
+	return clusterGroup.clusters
 }
 
 // 获取集群索引
-func (clusterGroup *ClusterGroup)indexOf(clusterName string) (index int) {
-    index = -1
-    for i, l := 0, len(clusterGroup.clusters); i < l; i++ {
-        if clusterGroup.clusters[i].Name == clusterName {
-            return i
-        }
-    }
-    return index
+func (clusterGroup *ClusterGroup) indexOf(clusterName string) (index int) {
+	index = -1
+	for i, l := 0, len(clusterGroup.clusters); i < l; i++ {
+		if clusterGroup.clusters[i].Name == clusterName {
+			return i
+		}
+	}
+	return index
 }

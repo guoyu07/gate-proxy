@@ -1,6 +1,9 @@
 package gateway
 
-import "sync"
+import (
+    "sync"
+    "net/http"
+)
 
 type Proxy struct {
 }
@@ -18,7 +21,7 @@ func (p Proxy) Handle(ctx *Context) {
     nodes := len(ctx.RouteInfo().NodeGroup)
     switch nodes {
     case 0:
-        ctx.JSON(BackendServiceError)
+        ctx.Render(http.StatusOK, BackendServiceError)
         return
     case 1:
         // 执行单个节点
@@ -32,5 +35,5 @@ func (p Proxy) Handle(ctx *Context) {
         }
         wg.Wait()
     }
-    ctx.Render()
+    ctx.Render(http.StatusOK, nil)
 }
