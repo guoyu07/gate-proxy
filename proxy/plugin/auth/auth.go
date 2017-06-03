@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"goodsogood/gateway"
 	"goodsogood/mall/lib/errors"
 	gsthrift "goodsogood/thrift"
@@ -31,12 +32,17 @@ type (
 )
 
 var (
-	DefaultMaxIdle           = 50
-	DefaultMaxConn           = 80
+	// DefaultMaxIdle . 默认空闲链接
+	DefaultMaxIdle = 50
+	// DefaultMaxConn . 默认最大链接
+	DefaultMaxConn = 80
+	// DefaultConnTimeout . 链接超时
 	DefaultConnTimeout int64 = 3
+	// DefaultReadTimeout . 读取超时
 	DefaultReadTimeout int64 = 5
 )
 
+// NewAuth .
 func NewAuth(options Options) (*AuthPlugin, error) {
 	if len(options.Servers) < 1 {
 		return nil, errors.New(-1, "Auth Server empty")
@@ -67,7 +73,7 @@ func NewAuth(options Options) (*AuthPlugin, error) {
 		authPlugin.connTimeout,
 		authPlugin.readTimeout,
 		func(openedSocket thrift.TTransport) gsthrift.Client {
-			protocol := thrift.NewTJSONProtocol(openedSocket)
+			protocol := thrift.NewTCompactProtocol(openedSocket)
 			return tokenService.NewTokenServiceClientProtocol(openedSocket, protocol, protocol)
 		},
 		func(client gsthrift.Client) bool {
@@ -87,6 +93,10 @@ func NewAuth(options Options) (*AuthPlugin, error) {
 
 func (auth *AuthPlugin) Name() string {
 	return "auth"
+}
+
+func (auth *AuthPlugin) Private() bool {
+	return false
 }
 
 func (auth *AuthPlugin) Version() string {
@@ -121,6 +131,7 @@ func (authPlugin *AuthPlugin) Handle(ctx *gateway.Context) {
 	}
 	pooledClient, err := authPlugin.pool.Get()
 	if err != nil {
+		fmt.Println(err)
 		ctx.Render(http.StatusOK, gateway.TokenServiceConnectFailed)
 		ctx.Abort()
 		return

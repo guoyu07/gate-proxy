@@ -8,7 +8,8 @@ import (
 type (
 	Cluster struct {
 		// 集群名称
-		Name string `json:"name,omitempty"`
+		Name        string `json:"name,omitempty"`
+		Description string `json:"description,omitempty"`
 		// 后端服务
 		backends BackendGroup
 
@@ -41,17 +42,21 @@ func (cluster *Cluster) addBackend(backend *Backend) {
 	cluster.rwMutex.Lock()
 	defer cluster.rwMutex.Unlock()
 	backend.getDefaultSetting()
-	backend.heartbeat()
+	if !backend.HeartDisabled {
+		backend.heartbeat()
+	}
 	cluster.backends = append(cluster.backends, backend)
 }
 
 // Remove . 移除后端服务
 func (cluster *Cluster) Remove(addr string) error {
 	index := cluster.indexOf(addr)
-	if index != -1 {
+	if index == -1 {
 		return BackendNotFound
 	}
-	heartStop <- cluster.backends[index].Addr
+	if !cluster.backends[index].HeartDisabled {
+		heartStop <- cluster.backends[index].Addr
+	}
 	cluster.rwMutex.Lock()
 	defer cluster.rwMutex.Unlock()
 	cluster.backends = append(cluster.backends[:index], cluster.backends[index+1:]...)
@@ -69,7 +74,9 @@ func (cluster *Cluster) Update(backend *Backend) {
 	cluster.rwMutex.Lock()
 	defer cluster.rwMutex.Unlock()
 	backend.getDefaultSetting()
-	backend.heartbeat()
+	if !backend.HeartDisabled {
+		backend.heartbeat()
+	}
 	cluster.backends[index] = backend
 }
 
@@ -139,7 +146,8 @@ func (clusterGroup *ClusterGroup) Update(cluster *Cluster) {
 		clusterGroup.clusters = append(clusterGroup.clusters, cluster)
 		return
 	}
-	clusterGroup.clusters[index] = cluster
+	// copy info
+	clusterGroup.clusters[index].Description = cluster.Description
 	return
 }
 

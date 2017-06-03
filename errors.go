@@ -32,5 +32,7 @@ var (
 	DeviceInfoEmpty           = errors.New(-9024, "设备信息获取失败")
 	TokenServiceConnectFailed = errors.New(-9025, "授权服务连接失败")
 
+	BackendsNumNotZero = errors.New(-9026, "已经绑定了Backend")
+
 	SUCCESS = errors.New(0, "操作成功")
 )

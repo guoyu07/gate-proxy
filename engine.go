@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -79,6 +80,7 @@ func (engine *Engine) Plugins() []PluginInfo {
 	for i, l := 0, len(engine.plugins); i < l; i++ {
 		plugins = append(plugins, PluginInfo{
 			engine.plugins[i].Name(),
+			engine.plugins[i].Private(),
 			engine.plugins[i].Version(),
 		})
 	}
@@ -124,21 +126,15 @@ func (engine *Engine) Clusters() []*Cluster {
 func (engine *Engine) combinePlugins(routeInfo RouteInfo) RouteInfo {
 	_, recovery := engine.Plugin("recovery")
 	routeInfo.handles = append(routeInfo.handles, recovery)
-	// 处理前置
-	for i, l := 0, len(routeInfo.BeginHandles); i < l; i++ {
-		if has, plugin := engine.Plugin(routeInfo.BeginHandles[i]); has {
+	// 处理插件
+	for i, l := 0, len(routeInfo.Handlers); i < l; i++ {
+		if has, plugin := engine.Plugin(routeInfo.Handlers[i]); has {
 			routeInfo.handles = append(routeInfo.handles, plugin)
 		}
 	}
 	_, plugin := engine.Plugin("proxy")
 	// 主调度
 	routeInfo.handles = append(routeInfo.handles, plugin)
-	// 处理后置
-	for i, l := 0, len(routeInfo.AfterHandles); i < l; i++ {
-		if has, plugin := engine.Plugin(routeInfo.AfterHandles[i]); has {
-			routeInfo.handles = append(routeInfo.handles, plugin)
-		}
-	}
 	return routeInfo
 }
 
@@ -154,9 +150,9 @@ func (engine *Engine) UnRoute(method, url string) {
 }
 
 // UpdateRoute .
-func (engine *Engine) UpdateRoute(routeInfo RouteInfo) {
+func (engine *Engine) UpdateRoute(method, url string, routeInfo RouteInfo) {
 	routeInfo = engine.combinePlugins(routeInfo)
-	engine.routeTable.Update(routeInfo)
+	engine.routeTable.Update(method, url, routeInfo)
 }
 
 // Routes .
@@ -169,6 +165,7 @@ func (engine *Engine) Run(addr string) (err error) {
 	defer func() {
 		log.Printf("[Gateway]%s", err.Error())
 	}()
+	fmt.Println("Gateway Listening and serving HTTP on ", addr)
 	err = http.ListenAndServe(addr, engine)
 	return
 }
@@ -178,7 +175,7 @@ func (engine *Engine) RunTLS(addr string, certFile string, keyFile string) (err 
 	defer func() {
 		log.Printf("[Gateway]%s", err.Error())
 	}()
-
+	fmt.Println("Gateway Listening and serving HTTPS on ", addr)
 	err = http.ListenAndServeTLS(addr, certFile, keyFile, engine)
 	return
 }
